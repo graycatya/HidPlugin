@@ -13,6 +13,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(../hidapi hidapi.out)
 
+list(APPEND HIDPLUGIN_PUBLIC_HEADERS "hidapi_winapi.h")
+
+
 set(HIDAPI_HIDTEST_TARGETS)
 if(NOT WIN32 AND NOT APPLE AND CMAKE_SYSTEM_NAME MATCHES "Linux")
   if(TARGET hidapi::hidraw)
@@ -35,4 +38,6 @@ else()
   list(APPEND HIDAPI_HIDTEST_TARGETS hidtest)
 endif()
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${DIR_LIB_SRCS})
+
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+

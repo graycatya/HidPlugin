@@ -15,6 +15,9 @@ public:
     explicit HidPlugin();
     ~HidPlugin();
 
+    int Init_Hid();
+    int Exit_HId();
+
     void Register_Hotplug(unsigned short vendor_id, unsigned short product_id);
     void Deregister_Hotplug();
 
@@ -26,7 +29,7 @@ public:
 
 private:
     std::thread* m_pHotplug_thread = nullptr;
-    int m_nHotplug_sleepMs = 1;
+    int m_nHotplug_sleepMs = 1000;
     bool m_bHotplugThreadStop = true;
     //std::map<std::string, Usb_Device> m_pUsb_devices;
 };

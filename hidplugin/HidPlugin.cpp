@@ -40,6 +40,16 @@ HidPlugin::~HidPlugin() {
     
 }
 
+int HidPlugin::Init_Hid()
+{
+    return hid_init();
+}
+
+int HidPlugin::Exit_HId()
+{
+    return hid_exit();
+}
+
 void HidPlugin::Register_Hotplug(unsigned short vendor_id, unsigned short product_id)
 {
     m_bHotplugThreadStop = false;
