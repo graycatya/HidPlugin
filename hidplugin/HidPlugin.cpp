@@ -2,6 +2,7 @@
 
 #include <hidapi.h>
 #include <iostream>
+#include <stdlib.h>
 
 // Headers needed for sleeping.
 #ifdef _WIN32
@@ -33,7 +34,7 @@
 #endif
 
 HidPlugin::HidPlugin() {
-    
+    m_pHid_devices.clear();
 }
 
 HidPlugin::~HidPlugin() {
@@ -61,13 +62,7 @@ void HidPlugin::Register_Hotplug(unsigned short vendor_id, unsigned short produc
              hid_info = hid_enumerate(vendor_id,product_id);
              //hid_info = hid_enumerate(0x3243,0x0122);
              /*遍历所有信息并打印*/
-             for(;hid_info != nullptr;hid_info = hid_info->next){
-                 std::cout << "interface_number: " << hid_info->interface_number << std::endl; // 设备接口号
-                 std::cout << "manufacturer_string: " << hid_info->manufacturer_string << std::endl; // 厂商字符串
-                 std::cout << "product_string: " << hid_info->product_string << std::endl; // 设备字符串
-                 std::cout << "release_number: " << hid_info->release_number << std::endl; // 版本号
-                 std::cout << "path: " << hid_info->path << std::endl; // 地址
-             }
+             Copy_Device(hid_info, m_pHid_devices);
              /*释放链表*/
              hid_free_enumeration(hid_info);
              //Compare_Devices(_instance->m_pUsb_devices, devices);
@@ -95,4 +90,38 @@ void HidPlugin::SetHotplug_SleepMs(int ms)
 int HidPlugin::GetHotplug_SleepMs()
 {
     return m_nHotplug_sleepMs;
+}
+
+void HidPlugin::Register_Hotplug_Callback(std::function<void (std::list<HidDevice>, std::list<HidDevice>)> callback)
+{
+    if(m_pHotplug_callback == nullptr)
+    {
+        m_pHotplug_callback = callback;
+    }
+}
+
+void HidPlugin::Deregister_Hotplug_Callback()
+{
+    if(m_pHotplug_callback)
+    {
+        m_pHotplug_callback = nullptr;
+    }
+}
+
+void HidPlugin::Copy_Device(hid_device_info *hid_info, std::list<HidDevice> &devices)
+{
+    for(;hid_info != nullptr;hid_info = hid_info->next){
+        HidDevice device;
+        device.interface_number = hid_info->interface_number;
+        device.manufacturer_string = hid_info->manufacturer_string;
+
+//        std::cout << "interface_number: " << hid_info->interface_number << std::endl; // 设备接口号
+//        std::cout << "manufacturer_string: " << hid_info->manufacturer_string << std::endl; // 厂商字符串
+//        std::cout << "product_string: " << hid_info->product_string << std::endl; // 设备字符串
+//        std::cout << "release_number: " << hid_info->release_number << std::endl; // 版本号
+//        std::cout << "bus_type: " << hid_info->bus_type << std::endl;
+//        std::cout << "serial_number: " << hid_info->serial_number << std::endl;
+//        std::cout << "path: " << hid_info->path << std::endl; // 地址
+        devices.push_back(device);
+    }
 }
