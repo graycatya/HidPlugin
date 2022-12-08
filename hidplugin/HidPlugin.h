@@ -15,11 +15,11 @@ class HidDevice
 {
 public:
     int interface_number;
-    std::string manufacturer_string;
-    std::string product_string;
+    std::wstring manufacturer_string;
+    std::wstring product_string;
     unsigned short release_number;
     hid_bus_type bus_type;
-    std::string serial_number;
+    std::wstring serial_number;
     std::string path;
 
 
@@ -46,14 +46,16 @@ public:
     void Deregister_Hotplug_Callback();
 
 private:
-    void Copy_Device(hid_device_info *hid_info, std::list<HidDevice> &devices);
+    void Copy_Device(hid_device_info *hid_info, std::map<std::string, HidDevice> &devices);
+    void Compare_Devices(std::map<std::string, HidDevice> &original, std::map<std::string, HidDevice> &current);
+
 
 private:
     std::thread* m_pHotplug_thread = nullptr;
     int m_nHotplug_sleepMs = 1000;
     bool m_bHotplugThreadStop = true;
     //std::map<std::string, Usb_Device> m_pUsb_devices;
-    std::list<HidDevice> m_pHid_devices;
+    std::map<std::string, HidDevice> m_pHid_devices;
 
     std::function<void(std::list<HidDevice>, std::list<HidDevice>)> m_pHotplug_callback = nullptr;
 
