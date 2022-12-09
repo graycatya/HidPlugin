@@ -45,10 +45,22 @@ public:
     void Register_Hotplug_Callback(std::function<void(std::list<HidDevice>, std::list<HidDevice>)> callback);
     void Deregister_Hotplug_Callback();
 
+    int Open_Device(unsigned short vendor_id, unsigned short product_id, std::wstring serial_number);
+    int Open_Device(std::string path);
+    int Close_Device();
+
+    void SetReadData_SleepMs(int ms);
+    int GetReadData_SleepMs();
+
+    void Register_ReadData_Callback(std::function<void(std::string)> callback);
+    void Deregister_ReadData_Callback();
+
 private:
     void Copy_Device(hid_device_info *hid_info, std::map<std::string, HidDevice> &devices);
     void Compare_Devices(std::map<std::string, HidDevice> &original, std::map<std::string, HidDevice> &current);
 
+    void Start_ReadData_Thread();
+    void Stop_ReadData_Thread();
 
 private:
     std::thread* m_pHotplug_thread = nullptr;
@@ -58,6 +70,14 @@ private:
     std::map<std::string, HidDevice> m_pHid_devices;
 
     std::function<void(std::list<HidDevice>, std::list<HidDevice>)> m_pHotplug_callback = nullptr;
+
+    std::thread* m_pReadData_thread = nullptr;
+    int m_nReadData_sleepMs = 1000;
+    bool m_bReadDataThreadStop = true;
+
+    std::function<void(std::string)> m_pReadData_callback = nullptr;
+
+    hid_device *device = nullptr;
 
     friend class Usb_Device;
 };

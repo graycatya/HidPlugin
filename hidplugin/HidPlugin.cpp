@@ -109,6 +109,84 @@ void HidPlugin::Deregister_Hotplug_Callback()
     }
 }
 
+int HidPlugin::Open_Device(unsigned short vendor_id, unsigned short product_id, std::wstring serial_number)
+{
+    if(device != nullptr)
+    {
+        return -1;
+    }
+
+    device = hid_open(vendor_id, product_id, serial_number.c_str());
+
+    if(device == nullptr)
+    {
+        return -2;
+    }
+
+    Start_ReadData_Thread();
+
+    return 0;
+
+}
+
+int HidPlugin::Open_Device(std::string path)
+{
+    if(device != nullptr)
+    {
+        return -1;
+    }
+
+    device = hid_open_path(path.c_str());
+
+    if(device == nullptr)
+    {
+        return -2;
+    }
+
+    Start_ReadData_Thread();
+
+    return 0;
+}
+
+int HidPlugin::Close_Device()
+{
+    if(device)
+    {
+        Stop_ReadData_Thread();
+        hid_close(device);
+        device = nullptr;
+        return 0;
+    }
+
+    return -1;
+}
+
+void HidPlugin::SetReadData_SleepMs(int ms)
+{
+    m_nReadData_sleepMs = ms;
+}
+
+int HidPlugin::GetReadData_SleepMs()
+{
+    return m_nReadData_sleepMs;
+}
+
+void HidPlugin::Register_ReadData_Callback(std::function<void (std::string)> callback)
+{
+    if(m_pReadData_callback == nullptr)
+    {
+        m_pReadData_callback = callback;
+    }
+}
+
+void HidPlugin::Deregister_ReadData_Callback()
+{
+    if(m_pReadData_callback)
+    {
+        m_pReadData_callback = nullptr;
+    }
+}
+
 void HidPlugin::Copy_Device(hid_device_info *hid_info, std::map<std::string, HidDevice> &devices)
 {
     for(;hid_info != nullptr;hid_info = hid_info->next){
@@ -175,4 +253,36 @@ void HidPlugin::Compare_Devices(std::map<std::string, HidDevice> &original, std:
     }
     original.clear();
     original = current;
+}
+
+void HidPlugin::Start_ReadData_Thread()
+{
+    m_bReadDataThreadStop = false;
+    m_pReadData_thread = new std::thread([=]{
+         while(!m_bReadDataThreadStop)
+         {
+             int res;
+             uint8_t buf[64+1];
+             res = hid_read(device, buf, 64+1);
+             if(res < 0){
+                 /*返回值查看*/
+                 //std::cout << "err_string = " << hid_error(device) << std::endl;
+             }
+
+             std::cout << buf << std::endl;
+
+             std::this_thread::sleep_for(std::chrono::milliseconds(m_nReadData_sleepMs));
+         }
+    });
+}
+
+void HidPlugin::Stop_ReadData_Thread()
+{
+    if(m_pReadData_thread != nullptr)
+    {
+        m_bReadDataThreadStop = true;
+        m_pReadData_thread->join();
+        delete m_pReadData_thread;
+        m_pReadData_thread = nullptr;
+    }
 }
