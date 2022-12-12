@@ -34,16 +34,33 @@
 #endif
 
 HidPlugin::HidPlugin() {
+    m_pMutex = new std::mutex;
+    m_pMutex->lock();
     m_pHid_devices.clear();
+    m_pMutex->unlock();
 }
 
 HidPlugin::~HidPlugin() {
-    
+    delete m_pMutex;
+    m_pMutex = nullptr;
 }
 
-int HidPlugin::Init_Hid()
+int HidPlugin::Init_Hid(unsigned short vendor_id, unsigned short product_id)
 {
-    return hid_init();
+    int ret = hid_init();
+    if(ret == 0)
+    {
+        hid_device_info *hid_info;//usb链表
+        /*打开指定VID PID设备*/
+        hid_info = hid_enumerate(vendor_id,product_id);
+        //hid_info = hid_enumerate(0x3243,0x0122);
+        /*遍历所有信息并打印*/
+        std::map<std::string, HidDevice> devices;
+        Copy_Device(hid_info, m_pHid_devices);
+        /*释放链表*/
+        hid_free_enumeration(hid_info);
+    }
+    return ret;
 }
 
 int HidPlugin::Exit_HId()
@@ -109,55 +126,112 @@ void HidPlugin::Deregister_Hotplug_Callback()
     }
 }
 
-int HidPlugin::Open_Device(unsigned short vendor_id, unsigned short product_id, std::wstring serial_number)
+//int HidPlugin::Open_Device(unsigned short vendor_id, unsigned short product_id, std::wstring serial_number)
+//{
+//    if(device != nullptr)
+//    {
+//        return -1;
+//    }
+
+//    device = hid_open(vendor_id, product_id, serial_number.c_str());
+
+//    if(device == nullptr)
+//    {
+//        return -2;
+//    }
+//    /*阻塞*/
+//    hid_set_nonblocking(device, 0);
+//    Start_ReadData_Thread();
+
+//    return 0;
+
+//}
+
+int HidPlugin::Open_Write_Device(std::string path)
 {
-    if(device != nullptr)
+    if(write_device != nullptr)
     {
         return -1;
     }
 
-    device = hid_open(vendor_id, product_id, serial_number.c_str());
-
-    if(device == nullptr)
+    write_device = hid_open_path(path.c_str());
+    if(write_device == nullptr)
     {
         return -2;
     }
 
-    Start_ReadData_Thread();
-
-    return 0;
-
-}
-
-int HidPlugin::Open_Device(std::string path)
-{
-    if(device != nullptr)
-    {
-        return -1;
-    }
-
-    device = hid_open_path(path.c_str());
-
-    if(device == nullptr)
-    {
-        return -2;
-    }
-
-    Start_ReadData_Thread();
-
     return 0;
 }
 
-int HidPlugin::Close_Device()
+int HidPlugin::Close_Write_Device()
 {
-    if(device)
+    if(write_device)
     {
-        Stop_ReadData_Thread();
-        hid_close(device);
-        device = nullptr;
+        hid_close(write_device);
+        write_device = nullptr;
         return 0;
     }
 
+    return -1;
+}
+
+int HidPlugin::Open_Read_Device(int info_index)
+{
+    int ret = -1;
+    m_pMutex->lock();
+    std::map<std::string, HidDevice>::iterator it;
+    int index = 0;
+    for(it=m_pHid_devices.begin(); it!=m_pHid_devices.end();++it,index++)
+    {
+        if(info_index == index)
+        {
+            ret = Open_Read_Device(it->second.path);
+            m_pMutex->unlock();
+            return ret;
+        }
+    }
+    m_pMutex->unlock();
+    return ret;
+}
+
+int HidPlugin::Open_Read_Device(std::string path)
+{
+    if(read_device != nullptr)
+    {
+        return -1;
+    }
+
+    read_device = hid_open_path(path.c_str());
+    if(read_device == nullptr)
+    {
+        return -2;
+    }
+    ///*阻塞*/
+    hid_set_nonblocking(read_device, 1);
+    Start_ReadData_Thread();
+
+    return 0;
+}
+
+int HidPlugin::Close_Read_Device()
+{
+    if(read_device)
+    {
+        Stop_ReadData_Thread();
+        hid_close(read_device);
+        read_device = nullptr;
+        return 0;
+    }
+
+    return -1;
+}
+
+int HidPlugin::Write_Data(std::string data)
+{
+    if(write_device)
+    {
+        return hid_write(write_device, (const unsigned char *)(data.c_str()), data.length()+1);
+    }
     return -1;
 }
 
@@ -185,6 +259,11 @@ void HidPlugin::Deregister_ReadData_Callback()
     {
         m_pReadData_callback = nullptr;
     }
+}
+
+std::map<std::string, HidDevice> HidPlugin::GetHidDevices()
+{
+    return m_pHid_devices;
 }
 
 void HidPlugin::Copy_Device(hid_device_info *hid_info, std::map<std::string, HidDevice> &devices)
@@ -251,8 +330,10 @@ void HidPlugin::Compare_Devices(std::map<std::string, HidDevice> &original, std:
     {
         m_pHotplug_callback(adds, dels);
     }
+    m_pMutex->lock();
     original.clear();
     original = current;
+    m_pMutex->unlock();
 }
 
 void HidPlugin::Start_ReadData_Thread()
@@ -262,14 +343,18 @@ void HidPlugin::Start_ReadData_Thread()
          while(!m_bReadDataThreadStop)
          {
              int res;
-             uint8_t buf[64+1];
-             res = hid_read(device, buf, 64+1);
+             unsigned char buf[64+1];
+             res = hid_read(read_device, buf, 64+1);
+             std::cout << "read res: " << res << std::endl;
              if(res < 0){
                  /*返回值查看*/
-                 //std::cout << "err_string = " << hid_error(device) << std::endl;
+                 std::cout << "err_string = " << std::wstring(hid_error(read_device)).c_str() << std::endl;
              }
-
-             std::cout << buf << std::endl;
+//             hid_set_nonblocking(read_device, 0);
+            for(int i = 0;i<8;i++){
+                std::cout << "buf[" << i << "]: " << buf[i] << std::endl;
+            }
+             //std::cout << buf << std::endl;
 
              std::this_thread::sleep_for(std::chrono::milliseconds(m_nReadData_sleepMs));
          }
@@ -285,4 +370,23 @@ void HidPlugin::Stop_ReadData_Thread()
         delete m_pReadData_thread;
         m_pReadData_thread = nullptr;
     }
+}
+
+int HidPlugin::Open_Write_Device(int info_index)
+{
+    int ret = -1;
+    m_pMutex->lock();
+    std::map<std::string, HidDevice>::iterator it;
+    int index = 0;
+    for(it=m_pHid_devices.begin(); it!=m_pHid_devices.end();++it,index++)
+    {
+        if(info_index == index)
+        {
+            ret = Open_Write_Device(it->second.path);
+            m_pMutex->unlock();
+            return ret;
+        }
+    }
+    m_pMutex->unlock();
+    return ret;
 }

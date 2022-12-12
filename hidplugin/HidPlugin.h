@@ -33,7 +33,7 @@ public:
     explicit HidPlugin();
     ~HidPlugin();
 
-    int Init_Hid();
+    int Init_Hid(unsigned short vendor_id = 0x0, unsigned short product_id = 0x0);
     int Exit_HId();
 
     void Register_Hotplug(unsigned short vendor_id, unsigned short product_id);
@@ -45,15 +45,21 @@ public:
     void Register_Hotplug_Callback(std::function<void(std::list<HidDevice>, std::list<HidDevice>)> callback);
     void Deregister_Hotplug_Callback();
 
-    int Open_Device(unsigned short vendor_id, unsigned short product_id, std::wstring serial_number);
-    int Open_Device(std::string path);
-    int Close_Device();
+    int Open_Write_Device(int info_index);
+    int Open_Write_Device(std::string path);
+    int Close_Write_Device();
+    int Open_Read_Device(int info_index);
+    int Open_Read_Device(std::string path);
+    int Close_Read_Device();
+    int Write_Data(std::string data);
 
     void SetReadData_SleepMs(int ms);
     int GetReadData_SleepMs();
 
     void Register_ReadData_Callback(std::function<void(std::string)> callback);
     void Deregister_ReadData_Callback();
+
+    std::map<std::string, HidDevice> GetHidDevices();
 
 private:
     void Copy_Device(hid_device_info *hid_info, std::map<std::string, HidDevice> &devices);
@@ -77,7 +83,10 @@ private:
 
     std::function<void(std::string)> m_pReadData_callback = nullptr;
 
-    hid_device *device = nullptr;
+    hid_device *write_device = nullptr;
+    hid_device *read_device = nullptr;
+
+    std::mutex* m_pMutex = nullptr;
 
     friend class Usb_Device;
 };
