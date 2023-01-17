@@ -52,6 +52,7 @@ public:
     int Open_Read_Device(std::string path);
     int Close_Read_Device();
     int Write_Data(std::string data);
+    int Send_Feature_report(std::string data);
 
     void SetReadData_SleepMs(int ms);
     int GetReadData_SleepMs();

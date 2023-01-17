@@ -207,7 +207,7 @@ int HidPlugin::Open_Read_Device(std::string path)
         return -2;
     }
     ///*阻塞*/
-    hid_set_nonblocking(read_device, 1);
+    std::cout << "set nonblocking: " << hid_set_nonblocking(read_device, 0) << std::endl;
     Start_ReadData_Thread();
 
     return 0;
@@ -230,7 +230,16 @@ int HidPlugin::Write_Data(std::string data)
 {
     if(write_device)
     {
-        return hid_write(write_device, (const unsigned char *)(data.c_str()), data.length()+1);
+        return hid_write(write_device, (const unsigned char *)(data.c_str()), data.length());
+    }
+    return -1;
+}
+
+int HidPlugin::Send_Feature_report(std::string data)
+{
+    if(write_device)
+    {
+        return hid_send_feature_report(write_device, (const unsigned char *)(data.c_str()), data.length());
     }
     return -1;
 }
@@ -344,6 +353,7 @@ void HidPlugin::Start_ReadData_Thread()
          {
              int res;
              unsigned char buf[64+1];
+             //buf[0] = 0x17;
              res = hid_read(read_device, buf, 64+1);
              std::cout << "read res: " << res << std::endl;
              if(res < 0){
@@ -352,7 +362,7 @@ void HidPlugin::Start_ReadData_Thread()
              }
 //             hid_set_nonblocking(read_device, 0);
             for(int i = 0;i<8;i++){
-                std::cout << "buf[" << i << "]: " << buf[i] << std::endl;
+                std::cout << "buf[" << i << "]: " << std::hex << (int)buf[i] << std::endl;
             }
              //std::cout << buf << std::endl;
 
