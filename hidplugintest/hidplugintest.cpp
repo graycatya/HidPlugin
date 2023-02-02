@@ -2,7 +2,7 @@
 #include <iostream>
 
 static void Hotplug_callback(std::list<HidDevice> adds, std::list<HidDevice> dels) {
-    //std::cout << "adds: " << std::to_string(adds.size()) << " dels: " << std::to_string(dels.size()) << std::endl;
+    std::cout << "adds: " << std::to_string(adds.size()) << " dels: " << std::to_string(dels.size()) << std::endl;
     fflush(stdout);
 }
 
